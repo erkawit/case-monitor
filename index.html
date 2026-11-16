@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบติดตามระยะเวลาคดี (Case Monitoring)</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script>window.tailwind || document.write('<script src="assets/vendor/tailwindcss-3.4.16.js"><\/script>');</script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Sarabun', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+          colors: {
+            gov: { 50:'#f2f5fa', 100:'#e3e9f3', 200:'#c4d0e4', 500:'#3a5a8c', 600:'#2c4a7a', 700:'#223b63', 800:'#1a2e4f', 900:'#13223b' }
+          }
+        }
+      }
+    };
+  </script>
+  <!-- DataTables -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.dataTables.min.css">
+  <link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased">
+
+<div id="app" class="min-h-screen flex flex-col">
+
+  <!-- ================= NAVBAR ================= -->
+  <header class="bg-gov-800 text-white shadow">
+    <div class="max-w-[1600px] mx-auto px-4">
+      <div class="flex items-center justify-between h-16 gap-4">
+        <a href="#dashboard" class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 rounded border border-white/30 flex items-center justify-center shrink-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path d="M12 3l8 4v2H4V7l8-4zM5 10v7M9.5 10v7M14.5 10v7M19 10v7M3 20h18"/></svg>
+          </div>
+          <div class="leading-tight min-w-0">
+            <div class="font-semibold text-[15px] truncate">ระบบติดตามระยะเวลาคดี (Case Monitoring)</div>
+            <div class="text-xs text-white/70 truncate">ศาลจังหวัดอุดรธานี</div>
+          </div>
+        </a>
+
+        <nav class="hidden lg:flex items-center gap-1 text-sm" id="mainNav">
+          <a href="#dashboard" data-nav="dashboard" class="nav-link">ภาพรวม</a>
+          <a href="#special"   data-nav="special"   class="nav-link">คดีจัดการพิเศษ</a>
+          <a href="#general"   data-nav="general"   class="nav-link">คดีจัดการทั่วไป</a>
+          <a href="#writs"     data-nav="writs"     class="nav-link">หมายระหว่างพิจารณา (อาญา)</a>
+          <a href="#files"     data-nav="files"     class="nav-link">ข้อมูลตามไฟล์ต้นฉบับ</a>
+          <a href="#rules"     data-nav="rules"     class="nav-link">เกณฑ์การประมวลผล</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <button type="button" id="btnBell" class="lockable relative p-2 rounded hover:bg-white/10" title="รายการแจ้งเตือน (ใกล้เกินกำหนด / เกินกำหนด)" aria-label="แจ้งเตือน">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0a3 3 0 11-6 0m6 0H9"/></svg>
+            <span id="bellCount" class="hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[11px] leading-[18px] text-center font-semibold">0</span>
+          </button>
+          <button type="button" id="btnImport" class="lockable inline-flex items-center gap-2 bg-white text-gov-800 hover:bg-gov-50 px-3 py-2 rounded text-sm font-medium">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16"/></svg>
+            <span class="hidden sm:inline whitespace-nowrap">นำเข้าข้อมูล Excel</span>
+          </button>
+          <button type="button" id="btnLogout" class="lockable hidden p-2 rounded hover:bg-white/10" title="ออกจากระบบ" aria-label="ออกจากระบบ">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 17l5-5-5-5M20 12H9M12 21H5a2 2 0 01-2-2V5a2 2 0 012-2h7"/></svg>
+          </button>
+          <button type="button" id="btnMenu" class="lockable lg:hidden p-2 rounded hover:bg-white/10" aria-label="เมนู">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+        </div>
+      </div>
+      <nav id="mobileNav" class="lg:hidden hidden pb-3 grid grid-cols-2 gap-1 text-sm">
+        <a href="#dashboard" data-nav="dashboard" class="nav-link">ภาพรวม</a>
+        <a href="#special"   data-nav="special"   class="nav-link">คดีจัดการพิเศษ</a>
+        <a href="#general"   data-nav="general"   class="nav-link">คดีจัดการทั่วไป</a>
+        <a href="#writs"     data-nav="writs"     class="nav-link">หมายระหว่างพิจารณา (อาญา)</a>
+        <a href="#files"     data-nav="files"     class="nav-link">ข้อมูลตามไฟล์ต้นฉบับ</a>
+        <a href="#rules"     data-nav="rules"     class="nav-link">เกณฑ์การประมวลผล</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- แถบข้อมูลการประมวลผลล่าสุด -->
+  <div id="infoBar" class="hidden bg-white border-b border-slate-200">
+    <div class="max-w-[1600px] mx-auto px-4 py-2 text-xs sm:text-sm text-slate-600 flex flex-wrap gap-x-6 gap-y-1">
+      <span>ประมวลผลข้อมูลเมื่อ: <b id="infoProcessed" class="text-slate-800">-</b></span>
+      <span>คำนวณสถานะ ณ วันที่: <b id="infoToday" class="text-slate-800">-</b></span>
+      <span>ไฟล์ต้นทาง: <b id="infoFiles" class="text-slate-800">-</b></span>
+      <span>จำนวนคดี (ไม่ซ้ำ): <b id="infoCases" class="text-slate-800">-</b></span>
+    </div>
+  </div>
+
+  <!-- ================= CONTENT ================= -->
+  <main class="flex-1 w-full max-w-[1600px] mx-auto px-4 py-6">
+
+    <!-- สถานะกำลังโหลด -->
+    <section id="viewLoading" class="py-24 text-center text-slate-500">กำลังโหลดข้อมูล...</section>
+
+    <!-- เข้าสู่ระบบ -->
+    <section id="viewLogin" class="hidden">
+      <form id="loginForm" class="max-w-sm mx-auto mt-10 bg-white border border-slate-200 rounded-lg shadow-sm p-6" autocomplete="on">
+        <div class="text-center mb-5">
+          <svg class="w-12 h-12 mx-auto text-gov-700" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 118 0v3"/></svg>
+          <h1 class="mt-2 text-lg font-semibold text-gov-900">เข้าสู่ระบบ</h1>
+          <p class="text-sm text-slate-500">ระบบนี้มีข้อมูลคดีและข้อมูลส่วนบุคคล เฉพาะเจ้าหน้าที่ที่ได้รับรหัสผ่าน</p>
+        </div>
+        <input type="text" name="username" value="staff" autocomplete="username" class="hidden" aria-hidden="true" tabindex="-1">
+        <label class="block text-sm text-slate-600 mb-1" for="loginPassword">รหัสผ่าน</label>
+        <input id="loginPassword" type="password" autocomplete="current-password" required class="filter-input w-full mb-3" placeholder="กรอกรหัสผ่าน">
+        <div id="loginError" class="hidden text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2 mb-3"></div>
+        <button type="submit" id="loginBtn" class="w-full bg-gov-700 hover:bg-gov-800 text-white rounded py-2 font-medium">เข้าสู่ระบบ</button>
+      </form>
+    </section>
+
+    <!-- ตั้งค่าระบบยังไม่ครบ -->
+    <section id="viewConfig" class="hidden">
+      <div class="max-w-xl mx-auto mt-10 bg-white border border-amber-300 rounded-lg p-6">
+        <h1 class="text-lg font-semibold text-amber-800 mb-2">ระบบยังตั้งค่าไม่ครบ</h1>
+        <div id="configMsg" class="text-sm text-slate-700 space-y-1"></div>
+        <p class="text-sm text-slate-500 mt-3">ตั้งค่า Environment Variables ใน Vercel (Project → Settings → Environment Variables) แล้ว Redeploy — ดูรายละเอียดใน README.md</p>
+      </div>
+    </section>
+
+    <!-- ยังไม่มีข้อมูล -->
+    <section id="viewEmpty" class="hidden">
+      <button type="button" id="emptyUpload" class="lockable w-full bg-white border-2 border-dashed border-slate-300 hover:border-gov-500 hover:bg-gov-50 rounded-lg py-20 px-6 text-center transition-colors">
+        <svg class="w-14 h-14 mx-auto text-slate-400" fill="none" stroke="currentColor" stroke-width="1.4" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>
+        <h2 class="mt-4 text-xl font-semibold text-slate-700">ยังไม่มีข้อมูลการประมวลผลแสดง</h2>
+        <p class="mt-2 text-slate-500">คลิกที่หน้านี้เพื่อแสดงหน้าต่างอัปโหลดไฟล์ Excel สำหรับประมวลผลข้อมูล</p>
+        <span class="inline-block mt-5 bg-gov-700 text-white px-5 py-2 rounded text-sm">อัปโหลดไฟล์ Excel</span>
+      </button>
+    </section>
+
+    <!-- ตารางติดตามคดี (ใช้ร่วมกันหลายเมนู) -->
+    <section id="viewMonitor" class="hidden">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+        <div>
+          <h1 id="monitorTitle" class="text-xl font-semibold text-gov-900">ภาพรวมการติดตามคดี</h1>
+          <p id="monitorDesc" class="text-sm text-slate-500"></p>
+        </div>
+      </div>
+
+      <!-- การ์ดสรุป -->
+      <div id="summaryCards" class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 mb-5"></div>
+
+      <!-- ตัวกรอง -->
+      <div class="bg-white border border-slate-200 rounded-lg p-3 mb-4 flex flex-wrap items-end gap-3">
+        <label class="text-sm">
+          <span class="block text-slate-500 mb-1">ประเภทการจัดการคดี</span>
+          <select id="fCategory" class="lockable filter-input">
+            <option value="">ทั้งหมด</option>
+            <option value="special">คดีจัดการพิเศษ</option>
+            <option value="general">คดีจัดการทั่วไป</option>
+            <option value="other">อักษรย่ออื่น (กรอบ 11–12 เดือน)</option>
+          </select>
+        </label>
+        <label class="text-sm">
+          <span class="block text-slate-500 mb-1">สถานะ</span>
+          <select id="fStatus" class="lockable filter-input">
+            <option value="">ทั้งหมด</option>
+            <option value="red">เกินกำหนด</option>
+            <option value="green">เฝ้าระวัง</option>
+            <option value="watch">เฝ้าระวัง + เกินกำหนด</option>
+            <option value="normal">ปกติ</option>
+            <option value="done">เสร็จสิ้น (มีเลขคดีแดง)</option>
+            <option value="nodate">ไม่มีวันที่รับฟ้อง</option>
+                      </select>
+        </label>
+        <label class="text-sm">
+          <span class="block text-slate-500 mb-1">อักษรย่อคดี</span>
+          <select id="fPrefix" class="lockable filter-input"><option value="">ทั้งหมด</option></select>
+        </label>
+        <label class="text-sm">
+          <span class="block text-slate-500 mb-1">กลุ่มคดี (ตามรายงาน)</span>
+          <select id="fGroup" class="lockable filter-input"><option value="">ทั้งหมด</option></select>
+        </label>
+        <div class="flex gap-2 ml-auto">
+          <button type="button" id="btnReset" class="lockable px-3 py-2 text-sm border border-slate-300 rounded hover:bg-slate-50">ล้างตัวกรอง</button>
+          <button type="button" id="btnExport" class="lockable px-3 py-2 text-sm rounded bg-gov-700 text-white hover:bg-gov-800">ส่งออก Excel (ตามตัวกรอง)</button>
+        </div>
+      </div>
+
+      <!-- สลับมุมมอง: เฉพาะเฝ้าระวัง (ค่าเริ่มต้น) / แสดงผลทั้งหมด -->
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <div class="inline-flex rounded border border-gov-200 overflow-hidden text-sm" role="group">
+          <button type="button" id="modeWatch" class="lockable mode-btn">เฉพาะรายการเฝ้าระวัง <span id="cntWatch" class="mode-count">0</span></button>
+          <button type="button" id="modeAll" class="lockable mode-btn">แสดงผลทั้งหมด <span id="cntAll" class="mode-count">0</span></button>
+        </div>
+        <div id="modeHint" class="text-xs text-slate-500"></div>
+      </div>
+
+      <div class="flex flex-wrap gap-4 text-xs text-slate-600 mb-2">
+        <span class="inline-flex items-center gap-1"><i class="legend legend-green"></i> เฝ้าระวัง (อยู่ในกรอบระยะเวลา)</span>
+        <span class="inline-flex items-center gap-1"><i class="legend legend-red"></i> เกินกำหนด</span>
+        <span class="inline-flex items-center gap-1"><i class="legend legend-done"></i> เสร็จสิ้น (มีเลขคดีแดง)</span>
+      </div>
+
+      <div class="bg-white border border-slate-200 rounded-lg p-3">
+        <table id="tblMonitor" class="row-border hover w-full text-sm" style="width:100%"></table>
+      </div>
+    </section>
+
+    <!-- รายงานคดีอาญาที่มีการออกหมายระหว่างพิจารณา -->
+    <section id="viewWrits" class="hidden">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+        <div>
+          <h1 class="text-xl font-semibold text-gov-900">รายงานคดีอาญาที่มีการออกหมายระหว่างพิจารณา</h1>
+          <p id="writMeta" class="text-sm text-slate-500"></p>
+        </div>
+      </div>
+      <div id="writEmpty" class="hidden bg-white border border-slate-200 rounded-lg p-10 text-center text-slate-500">
+        ไม่พบไฟล์รายงานการออกหมายในข้อมูลชุดนี้ (ไฟล์ที่มีคอลัมน์ "วันเดือนปีที่ออกหมาย")
+      </div>
+      <div id="writBody">
+        <div id="writCards" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5"></div>
+        <div class="flex flex-wrap gap-4 text-xs text-slate-600 mb-2">
+          <span class="inline-flex items-center gap-1"><i class="legend legend-green"></i> เฝ้าระวัง: วันที่รับฟ้อง → วันออกหมาย 5 เดือน แต่ไม่ถึง 6 เดือน</span>
+          <span class="inline-flex items-center gap-1"><i class="legend legend-red"></i> วันที่รับฟ้อง → วันออกหมาย 6 เดือนขึ้นไป</span>
+          <span class="inline-flex items-center gap-1"><i class="legend legend-done"></i> ออกหมายปล่อยชั่วคราวแล้ว (เจ้าหน้าที่ระบุ)</span>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg p-3 mb-4 flex flex-wrap items-end gap-3">
+          <label class="text-sm"><span class="block text-slate-500 mb-1">สถานะ (กรอบ 5–6 เดือน)</span>
+            <select id="wStatus" class="lockable filter-input">
+              <option value="">ทั้งหมด</option>
+              <option value="watch">เฝ้าระวัง + เกิน 6 เดือน</option>
+              <option value="green">เฝ้าระวัง (5–6 เดือน)</option>
+              <option value="red">เกิน 6 เดือน</option>
+              <option value="normal">ปกติ (ยังไม่ถึง 5 เดือน)</option>
+              <option value="bail">ออกหมายปล่อยชั่วคราวแล้ว</option>
+              <option value="noissue">ไม่มีวันเดือนปีที่ออกหมาย</option>
+              <option value="nodate">ไม่พบวันที่รับฟ้อง (เทียบไม่ได้)</option>
+            </select></label>
+          <label class="text-sm"><span class="block text-slate-500 mb-1">ออกหมายตั้งแต่วันที่</span>
+            <input type="date" id="wFrom" class="lockable filter-input"></label>
+          <label class="text-sm"><span class="block text-slate-500 mb-1">ถึงวันที่</span>
+            <input type="date" id="wTo" class="lockable filter-input"></label>
+          <label class="text-sm"><span class="block text-slate-500 mb-1">อักษรย่อคดี</span>
+            <select id="wPrefix" class="lockable filter-input"><option value="">ทั้งหมด</option></select></label>
+          <label class="text-sm"><span class="block text-slate-500 mb-1">กำหนดโทษ</span>
+            <select id="wPenalty" class="lockable filter-input">
+              <option value="">ทั้งหมด</option><option value="has">ระบุกำหนดโทษ</option><option value="none">ไม่ระบุ (-)</option>
+            </select></label>
+          <div class="flex gap-2 ml-auto">
+            <button type="button" id="wReset" class="lockable px-3 py-2 text-sm border border-slate-300 rounded hover:bg-slate-50">ล้างตัวกรอง</button>
+            <button type="button" id="wPrint" class="lockable px-3 py-2 text-sm border border-gov-500 text-gov-700 rounded hover:bg-gov-50">พิมพ์รายงาน</button>
+            <button type="button" id="wExport" class="lockable px-3 py-2 text-sm rounded bg-gov-700 text-white hover:bg-gov-800">ส่งออก Excel</button>
+          </div>
+        </div>
+        <div id="noPenWrap" class="hidden mb-6">
+          <h2 class="text-lg font-semibold text-amber-800 mb-1">⚠ รายการที่ "กำหนดโทษ" ว่างเปล่า — ตรวจสอบก่อน (<span id="npCount">0</span> ฉบับ)</h2>
+          <p class="text-sm text-slate-600 mb-2">หมายเหล่านี้ไม่มีข้อมูลในคอลัมน์ "กำหนดโทษ" กรุณาตรวจสอบว่าเหตุใดจึงไม่มีข้อมูล ก่อนพิจารณาการออกหมายระหว่างพิจารณา</p>
+          <div class="bg-amber-50 border border-amber-300 rounded-lg p-3">
+            <table id="tblNoPenalty" class="row-border hover w-full text-sm" style="width:100%"></table>
+          </div>
+        </div>
+        <h2 class="text-lg font-semibold text-gov-800 mb-2">รายการที่มีข้อมูลกำหนดโทษ (<span id="mainCount">0</span> ฉบับ)</h2>
+        <div class="grid xl:grid-cols-4 gap-4">
+          <div class="xl:col-span-3 bg-white border border-slate-200 rounded-lg p-3 min-w-0">
+            <table id="tblWrits" class="row-border hover w-full text-sm" style="width:100%"></table>
+          </div>
+          <div class="bg-white border border-slate-200 rounded-lg p-3 text-sm">
+            <h2 class="font-semibold text-gov-800 mb-2">สรุปจำนวนหมายรายวัน</h2>
+            <table class="w-full" id="writDaily"></table>
+          </div>
+        </div>
+        <div id="excludedWrap" class="hidden mt-6">
+          <h2 class="text-lg font-semibold text-slate-700 mb-1">รายการ "ไม่อยู่ในเกณฑ์เฝ้าระวัง" (<span id="exCount">0</span> ฉบับ)</h2>
+          <p class="text-sm text-slate-500 mb-2">รายการที่เจ้าหน้าที่นำออกจากเกณฑ์เฝ้าระวัง — ไม่นับในสถานะและการแจ้งเตือน กด "นำกลับเข้าเกณฑ์" เพื่อย้ายกลับ</p>
+          <div class="bg-slate-50 border border-slate-300 rounded-lg p-3">
+            <table id="tblExcluded" class="row-border hover w-full text-sm" style="width:100%"></table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ข้อมูลตามไฟล์ต้นฉบับ -->
+    <section id="viewFiles" class="hidden">
+      <h1 class="text-xl font-semibold text-gov-900">ข้อมูลตามไฟล์ต้นฉบับ</h1>
+      <p class="text-sm text-slate-500 mb-4">แสดงข้อมูลครบทุกคอลัมน์ตามหัวตารางของไฟล์ Excel ที่นำเข้า พร้อมสถานะที่ประเมินได้ของแต่ละคดี</p>
+      <div id="fileSummary" class="grid md:grid-cols-2 xl:grid-cols-3 gap-3 mb-4"></div>
+      <div class="bg-white border border-slate-200 rounded-lg p-3 mb-3 flex flex-wrap items-end gap-3">
+        <label class="text-sm flex-1 min-w-[260px]">
+          <span class="block text-slate-500 mb-1">เลือกไฟล์ / ชีต</span>
+          <select id="fSheet" class="lockable filter-input w-full"></select>
+        </label>
+      </div>
+      <div class="bg-white border border-slate-200 rounded-lg p-3">
+        <div id="sheetMeta" class="text-sm text-slate-600 mb-2"></div>
+        <div id="sheetTableWrap"></div>
+      </div>
+    </section>
+
+    <!-- เกณฑ์ -->
+    <section id="viewRules" class="hidden">
+      <h1 class="text-xl font-semibold text-gov-900 mb-4">เกณฑ์การประมวลผลข้อมูล</h1>
+      <div class="grid lg:grid-cols-2 gap-4 text-[15px] leading-relaxed">
+        <div class="bg-white border border-slate-200 rounded-lg p-5">
+          <h2 class="font-semibold text-gov-800 mb-2">1. คดีจัดการพิเศษ — กรอบ 5 เดือน แต่ไม่เกิน 6 เดือน</h2>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>อักษรย่อ <b>ผบ, ผบE, ม, มE, มย, มยE</b> ใช้เกณฑ์ 5–6 เดือน</li>
+            <li>อักษรย่อ <b>รส</b> ไม่มีข้อมูลจำเลย → เกณฑ์ 5–6 เดือน (มีข้อมูลจำเลย → เกณฑ์ 11 เดือน แต่ไม่เกิน 1 ปี)</li>
+            <li>อักษรย่อ <b>พ, พE</b> ตรวจช่อง "จำเลย"
+              <ul class="list-[circle] pl-5">
+                <li>ไม่มีข้อมูลจำเลย → เกณฑ์ 5–6 เดือน</li>
+                <li>มีจำเลย และข้อหาเป็น "จัดการมรดก" / "ขอจัดการมรดก" → เกณฑ์ 5–6 เดือน</li>
+                <li>มีจำเลย และข้อหาอื่น → เกณฑ์ 11 เดือน แต่ไม่เกิน 1 ปี</li>
+              </ul>
+            </li>
+            <li>อายุคดี ≥ 5 เดือน แต่ไม่ถึง 6 เดือน → <span class="pill pill-green">เฝ้าระวัง (สีเขียว)</span></li>
+            <li>อายุคดี ≥ 6 เดือน → <span class="pill pill-red">เกินกำหนด (สีแดง)</span></li>
+          </ul>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg p-5">
+          <h2 class="font-semibold text-gov-800 mb-2">2. คดีจัดการทั่วไป — กรอบ 11 เดือน แต่ไม่เกิน 1 ปี</h2>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>อักษรย่อ <b>อ, ย, ยฝ, ฝ</b>, <b>รส</b> ที่มีข้อมูลจำเลย และ <b>พ, พE</b> ที่มีจำเลยและข้อหาไม่ใช่การจัดการมรดก</li>
+            <li>นับจาก "วันที่รับฟ้อง" ถึงวันที่ปัจจุบัน: ≥ 11 เดือน แต่ไม่ถึง 12 เดือน → <span class="pill pill-green">เฝ้าระวัง</span></li>
+            <li>≥ 12 เดือน (หรือครบ 1 ปีพอดี) → <span class="pill pill-red">เกินกำหนด</span></li>
+            <li>หากมีคอลัมน์ "วันนัดต่อไป" จะนับช่วงวันที่รับฟ้อง → วันนัดต่อไปด้วย หากวันนัดตกอยู่ในกรอบ/เกินกรอบ จะยกระดับสถานะตามนั้น</li>
+            <li>หากมี "เลขคดีแดง" ถือว่าคดีเสร็จสิ้น แต่ยังแสดงข้อมูลและวันนัดต่อไป (ถ้ามี)</li>
+          </ul>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg p-5 lg:col-span-2">
+          <h2 class="font-semibold text-gov-800 mb-2">3. อักษรย่ออื่น — ตรวจกรอบ 11 เดือน แต่ไม่เกิน 1 ปี</h2>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>อักษรย่อที่ไม่อยู่ในรายการข้างต้น (เช่น คม, ภอท)</li>
+            <li>นับจากวันที่รับฟ้องถึงวันนี้ และนับจากวันที่รับฟ้องถึง<b>วันนัดต่อไป</b> — หากช่วงใดถึง 11 เดือน → <span class="pill pill-green">เฝ้าระวัง</span> ถึง 12 เดือน (1 ปี) ขึ้นไป → <span class="pill pill-red">เกินกำหนด</span></li>
+          </ul>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg p-5 lg:col-span-2">
+          <h2 class="font-semibold text-gov-800 mb-2">4. รายงานคดีอาญาที่มีการออกหมายระหว่างพิจารณา — เทียบวันที่รับฟ้อง → วันออกหมาย กรอบ 5–6 เดือน</h2>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>ใช้กับไฟล์ที่มีคอลัมน์ "วันเดือนปีที่ออกหมาย" โดยนับระยะเวลาจาก<b>วันที่รับฟ้อง</b> (ดึงจากรายงานคดีที่เลขคดีดำตรงกัน) ถึง<b>วันเดือนปีที่ออกหมาย</b>ของแต่ละรายการ</li>
+            <li>หากไม่พบวันที่รับฟ้องของคดีในรายงานคดีที่นำเข้า จะแสดงสถานะ <span class="pill pill-nodate">ไม่มีวันที่รับฟ้อง</span> (เทียบไม่ได้) — นำเข้ารายงานคดีค้างที่มีคดีนั้นเพื่อให้ระบบเทียบได้</li>
+            <li>หมายที่ช่อง <b>"กำหนดโทษ"</b> ว่างเปล่า จะแยกไปตารางด้านบนสุด เพื่อให้ตรวจสอบก่อนว่าเหตุใดจึงไม่มีข้อมูล</li>
+            <li>≥ 5 เดือน แต่ไม่ถึง 6 เดือน → <span class="pill pill-green">เฝ้าระวัง</span> · ≥ 6 เดือน → <span class="pill pill-red">เกินกำหนด</span></li>
+            <li>รายการที่ไม่มีวันเดือนปีที่ออกหมาย (หรืออ่านไม่ได้) แสดงสถานะ <span class="pill pill-noissue">ไม่มีวันออกหมาย</span></li>
+            <li>เจ้าหน้าที่กดปุ่ม "ระบุ: ปล่อยชั่วคราว" เพื่อยืนยันว่าคดีมีการขอประกันตัวและออกหมายปล่อยตัวชั่วคราวระหว่างพิจารณาแล้ว รายการนั้นจะเปลี่ยนเป็น <span class="pill pill-done">ปล่อยชั่วคราวแล้ว</span> และไม่นับในการเฝ้าระวัง (ยกเลิกได้) — การบันทึกนี้เก็บแยกในไฟล์ ฐานข้อมูล จึงคงอยู่แม้นำเข้าไฟล์ใหม่</li>
+          </ul>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-lg p-5 lg:col-span-2">
+          <h2 class="font-semibold text-gov-800 mb-2">หลักการนับระยะเวลาและการจัดการข้อมูล</h2>
+          <ul class="list-disc pl-5 space-y-1">
+            <li><b>ปรับเกณฑ์รายคดี:</b> ปุ่ม "ปรับเกณฑ์" ด้านซ้ายสุดของตาราง ให้เจ้าหน้าที่เลือกเกณฑ์ 5–6 เดือน, 11–12 เดือน หรือ เกิน 1 ปี แต่ไม่เกิน 1 ปี 6 เดือน (เฝ้าระวังตั้งแต่ครบ 1 ปีขึ้นไป) แทนเกณฑ์อัตโนมัติได้ ระบบคำนวณสถานะ/สีใหม่ทันที (เลือกกลับเป็นเกณฑ์อัตโนมัติเพื่อยกเลิกการปรับ) — บันทึกไว้ที่ ฐานข้อมูล</li>
+            <li><b>หมายที่ไม่อยู่ในเกณฑ์เฝ้าระวัง:</b> ติ๊ก "ไม่อยู่ในเกณฑ์" ในหน้าหมายระหว่างพิจารณา เพื่อแยกรายการไปตารางด้านล่าง ไม่นับในการแจ้งเตือน — บันทึกไว้ที่ ฐานข้อมูล</li>
+            <li>ใช้ "วันที่รับฟ้อง" (หรือ "วันรับฟ้อง") เป็นตัวแปรหลัก นับเป็นจำนวนเดือนเต็มตามปฏิทิน เช่น 10 พ.ย. 68 → 10 พ.ย. 69 = 12 เดือน 0 วัน</li>
+            <li>สถานะคำนวณใหม่ทุกครั้งที่เปิดหน้าเว็บ ตามวันที่ปัจจุบัน โดยใช้ข้อมูลชุดล่าสุดที่ประมวลผลไว้</li>
+            <li>คดีที่ปรากฏซ้ำในหลายไฟล์/หลายชีต (เลขคดีดำเดียวกัน) จะรวมเป็นรายการเดียว และเติมข้อมูลที่ขาดจากแหล่งอื่น</li>
+            <li><b>อ้างอิงข้ามไฟล์:</b> หากเลขคดีดำตรงกันและพบ "วันที่รับฟ้อง" ในไฟล์ใดไฟล์หนึ่ง จะนำมาใช้กับคดีนั้นทันที และแสดงแหล่งที่มาในรายละเอียดคดี</li>
+            <li>หากเลขคดีดำตรงกับ <b>"วันเดือนปีที่ออกหมาย"</b> ในรายงานหมายระหว่างพิจารณา จะแนบข้อมูลหมายประกอบคดี และหากไม่พบวันที่รับฟ้องจากไฟล์ใดเลย จะใช้วันออกหมายครั้งแรกเป็นวันเริ่มนับแทน (ระบุไว้ชัดเจนในตาราง)</li>
+            <li>หน้าแสดงผลจะแสดง<b>เฉพาะรายการเฝ้าระวัง</b> (ไฮไลต์สีเขียว/สีแดง) เป็นค่าเริ่มต้น รายการอื่นดูได้ที่ปุ่ม "แสดงผลทั้งหมด"</li>
+            <li>ไฟล์ที่มีคอลัมน์ <b>"วันเดือนปีที่ออกหมาย"</b> ถือเป็นรายงานคดีอาญาที่มีการออกหมายระหว่างพิจารณา แยกไปแสดงที่เมนู "หมายระหว่างพิจารณา (อาญา)" และไม่นำมานับระยะเวลาคดี</li>
+            <li>ไฟล์ Excel ถูกอ่านและประมวลผล<b>ภายในเบราว์เซอร์เท่านั้น ไม่ถูกส่งหรือจัดเก็บบนเซิร์ฟเวอร์</b> เมื่อประมวลผลเสร็จจะล้างออกจากหน่วยความจำทันที ส่วนผลลัพธ์จะถูกบีบอัด (gzip) และบันทึกในฐานข้อมูล (Upstash Redis)</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="text-center text-xs text-slate-500 py-4 border-t border-slate-200 bg-white">
+    ศาลจังหวัดอุดรธานี · ระบบติดตามระยะเวลาคดี (Case Monitoring)
+  </footer>
+</div>
+
+<!-- ชั้นล็อกระบบระหว่างประมวลผล -->
+<div id="systemLock" class="hidden fixed inset-0 z-[1000] bg-slate-900/40 cursor-wait"></div>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/2.1.8/js/dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.14.5/dist/sweetalert2.all.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script>
+  // สำรอง: หากใช้งานในเครือข่ายภายในที่ไม่มีอินเทอร์เน็ต ให้วางไฟล์ไว้ที่ assets/vendor/ (ดู README)
+  window.jQuery    || document.write('<script src="assets/vendor/jquery-3.7.1.min.js"><\/script>');
+</script>
+<script>
+  window.DataTable || document.write('<link rel="stylesheet" href="assets/vendor/dataTables.dataTables.min.css"><script src="assets/vendor/dataTables.min.js"><\/script>');
+  window.Swal      || document.write('<script src="assets/vendor/sweetalert2.all.min.js"><\/script>');
+  window.XLSX      || document.write('<script src="assets/vendor/xlsx.full.min.js"><\/script>');
+</script>
+<script src="assets/js/processor.js?v=2"></script>
+<script src="assets/js/app.js?v=2"></script>
+</body>
+</html>
