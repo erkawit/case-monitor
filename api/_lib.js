@@ -11,8 +11,18 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
-const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
+/** หาค่าตัวแปรตามชื่อ — รองรับชื่อที่ Vercel เติมคำนำหน้าให้ (เช่น STORAGE_KV_REST_API_URL) */
+function envBySuffix(names) {
+  for (const n of names) if (process.env[n]) return process.env[n];
+  const keys = Object.keys(process.env);
+  for (const n of names) {
+    const k = keys.find((x) => x.endsWith('_' + n) && process.env[x]);
+    if (k) return process.env[k];
+  }
+  return '';
+}
+const KV_URL = envBySuffix(['KV_REST_API_URL', 'UPSTASH_REDIS_REST_URL']);
+const KV_TOKEN = envBySuffix(['KV_REST_API_TOKEN', 'UPSTASH_REDIS_REST_TOKEN']);
 const PREFIX = process.env.CM_KEY_PREFIX || 'cm:';
 // ใช้เฉพาะตอนพัฒนาบนเครื่อง (scripts/dev-server.js ตั้งค่าให้) — บน Vercel ต้องใช้ Redis เสมอ
 const LOCAL_STORE = process.env.CM_LOCAL_STORE || '';
